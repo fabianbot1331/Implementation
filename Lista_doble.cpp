@@ -1,9 +1,7 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-class Lista {
-private:
-    struct Node {
+struct Node {
         int dato;
         Node* prev;
         Node* next;
@@ -15,6 +13,8 @@ private:
         }
     };
 
+class Lista {
+private:
     Node* head;
     Node* tail;
     int tam;
@@ -34,6 +34,14 @@ public:
         return tam;
     }
 
+    Node* gethead(){
+        return head;
+    }
+    
+    Node* gettail(){
+        return tail;
+    }
+    
     bool empty() const {
         return tam == 0;
     }
@@ -145,6 +153,54 @@ public:
 
         cout << endl;
     }
+    
+    void erase(int x) {
+    if(x < 0 || x >= tam) {
+        return;
+    }
+
+    Node* actual = head;
+
+    for(int i = 0; i < x; i++) {
+        actual = actual->next;
+    }
+
+    if(actual == head) {
+        pop_front();
+        return;
+    }
+
+    if(actual == tail) {
+        pop_back();
+        return;
+    }
+
+    actual->prev->next = actual->next;
+    actual->next->prev = actual->prev;
+
+    delete actual;
+    tam--;
+    }
+    
+    void erase(Node* actual) {
+    if(actual == nullptr) return;
+
+    if(actual == head) {
+        pop_front();
+        return;
+    }
+
+    if(actual == tail) {
+        pop_back();
+        return;
+    }
+
+    actual->prev->next = actual->next;
+    actual->next->prev = actual->prev;
+
+    delete actual;
+    tam--;
+}
 
     void clear() {
         while(head != nullptr) {
@@ -154,6 +210,8 @@ public:
 };
 
 int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(0);
     Lista lista;
 
     lista.push_back(10);
