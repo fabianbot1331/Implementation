@@ -1,0 +1,76 @@
+#include<bits/stdc++.h>
+using namespace::std;
+
+template<typename data_type>
+struct Queue {
+    struct QueueNode {
+        data_type data;
+        QueueNode* next;
+
+        QueueNode() {
+        }
+
+        QueueNode(data_type data) : data(data), next(nullptr) {}
+    };
+
+    QueueNode* _front, *_back;
+
+    Queue() {
+        _front = nullptr;
+        _back = nullptr;
+    }
+
+    void push(data_type value) {
+        if (_front == nullptr) {
+            _front = new QueueNode(value);
+            _back = _front;
+        }
+        else {
+            _back->next = new QueueNode(value);
+            _back = _back -> next;
+        }
+    }
+
+    void pop() {
+        if (_front != nullptr) {
+            _front = _front -> next;
+        }
+    }
+
+    data_type front() {
+        return _front == nullptr ? data_type() : _front -> data;
+    }
+
+    bool empty() {
+        return _front == nullptr;
+    }
+};
+
+int main() {
+    int n, m; cin >> n >> m;
+    Queue<pair<int, int>> q;
+    for(int i=1; i<=n; i++){
+        int a; cin >> a;
+        q.push(make_pair(a,i));
+    }
+    int count = 0;
+    
+    if(n == 1) cout << q.front().second;
+    else while(!q.empty()){
+        int f = q.front().first;
+        int f2 = q.front().second;
+        if(f>m){
+            q.pop();
+            q.push(make_pair(f-m,f2));
+        }
+        else{
+            count++;
+            q.pop();
+        }
+        if(count == n - 1){
+            cout << q.front().second;
+            break;
+        }
+    }
+}
+
