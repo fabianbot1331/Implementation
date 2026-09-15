@@ -1,0 +1,366 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+unsigned long long my_hash(int x) {
+    unsigned long long h = x;
+    h ^= h >> 16;
+    h *= 0x45d9f3b;
+    h ^= h >> 16;
+    h *= 0x45d9f3b;
+    h ^= h >> 16;
+    return h;
+}
+
+unsigned long long my_hash(unsigned int x) {
+    unsigned long long h = x;
+    h ^= h >> 16;
+    h *= 0x45d9f3b;
+    h ^= h >> 16;
+    h *= 0x45d9f3b;
+    h ^= h >> 16;
+    return h;
+}
+
+unsigned long long my_hash(long long x) {
+    unsigned long long h = x;
+    h ^= h >> 32;
+    h *= 0x9e3779b97f4a7c15ULL;
+    h ^= h >> 32;
+    return h;
+}
+
+unsigned long long my_hash(unsigned long long x) {
+    unsigned long long h = x;
+    h ^= h >> 32;
+    h *= 0x9e3779b97f4a7c15ULL;
+    h ^= h >> 32;
+    return h;
+}
+
+unsigned long long my_hash(char x) {
+    return my_hash((unsigned int)x);
+}
+
+unsigned long long my_hash(bool x) {
+    return my_hash((unsigned int)x);
+}
+
+unsigned long long my_hash(float x) {
+    unsigned int bits;
+
+    memcpy(&bits, &x, sizeof(float));
+
+    return my_hash(bits);
+}
+
+unsigned long long my_hash(double x) {
+    unsigned long long bits;
+
+    memcpy(&bits, &x, sizeof(double));
+
+    return my_hash(bits);
+}
+
+unsigned long long my_hash(const string& s) {
+    unsigned long long h = 1469598103934665603ULL;
+
+    for(int i = 0; i < (int)s.size(); i++) {
+        h ^= (unsigned char)s[i];
+        h *= 1099511628211ULL;
+    }
+
+    return h;
+}
+
+template <typename K, typename V>
+struct NodeHash {
+    K key;
+    V value;
+    NodeHash<K, V>* next;
+
+    NodeHash(const K& key, const V& value) {
+        this->key = key;
+        this->value = value;
+        next = nullptr;
+    }
+};
+
+template <typename K, typename V>
+class UnorderedMap {
+private:
+    NodeHash<K, V>** buckets;
+    int capacidad;
+    int tam;
+
+    int hash(const K& key) const {
+        return my_hash(key) % capacidad;
+    }
+
+    void resize() {
+        int nuevaCapacidad = capacidad * 2;
+
+        NodeHash<K, V>** nuevos =
+            new NodeHash<K, V>*[nuevaCapacidad];
+
+        for(int i = 0; i < nuevaCapacidad; i++)
+            nuevos[i] = nullptr;
+
+        for(int i = 0; i < capacidad; i++) {
+            NodeHash<K, V>* actual = buckets[i];
+
+            while(actual != nullptr) {
+                NodeHash<K, V>* siguiente = actual->next;
+
+                unsigned long long h = my_hash(actual->key);
+                int posicion = h % nuevaCapacidad;
+
+                actual->next = nuevos[posicion];
+                nuevos[posicion] = actual;
+
+                actual = siguiente;
+            }
+        }
+
+        delete[] buckets;
+
+        buckets = nuevos;
+        capacidad = nuevaCapacidad;
+    }
+
+public:
+
+    UnorderedMap(int capacidad = 8) {
+        this->capacidad = capacidad;
+        tam = 0;
+
+        buckets = new NodeHash<K, V>*[capacidad];
+
+        for(int i = 0; i < capacidad; i++)
+            buckets[i] = nullptr;
+    }
+
+    ~UnorderedMap() {
+        clear();
+        delete[] buckets;
+    }
+
+    int size() const {
+        return tam;
+    }
+
+    bool empty() const {
+        return tam == 0;
+    }
+
+    int bucket_count() const {
+        return capacidad;
+    }
+
+    bool contains(const K& key) const {
+        int posicion = hash(key);
+
+        NodeHash<K, V>* actual = buckets[posicion];
+
+        while(actual != nullptr) {
+            if(actual->key == key)
+                return true;
+
+            actual = actual->next;
+        }
+
+        return false;
+    }
+
+    V* find(const K& key) {
+        int posicion = hash(key);
+
+        NodeHash<K, V>* actual = buckets[posicion];
+
+        while(actual != nullptr) {
+            if(actual->key == key)
+                return &actual->value;
+
+            actual = actual->next;
+        }
+
+        return nullptr;
+    }
+
+    const V* find(const K& key) const {
+        int posicion = hash(key);
+
+        NodeHash<K, V>* actual = buckets[posicion];
+
+        while(actual != nullptr) {
+            if(actual->key == key)
+                return &actual->value;
+
+            actual = actual->next;
+        }
+
+        return nullptr;
+    }
+
+    void insert(const K& key, const V& value) {
+        int posicion = hash(key);
+
+        NodeHash<K, V>* actual = buckets[posicion];
+
+        while(actual != nullptr) {
+            if(actual->key == key) {
+                actual->value = value;
+                return;
+            }
+
+            actual = actual->next;
+        }
+
+        NodeHash<K, V>* nuevo =
+            new NodeHash<K, V>(key, value);
+
+        nuevo->next = buckets[posicion];
+        buckets[posicion] = nuevo;
+
+        tam++;
+
+        if(tam > capacidad * 0.75)
+            resize();
+    }
+
+    void erase(const K& key) {
+        int posicion = hash(key);
+
+        NodeHash<K, V>* actual = buckets[posicion];
+        NodeHash<K, V>* anterior = nullptr;
+
+        while(actual != nullptr) {
+
+            if(actual->key == key) {
+
+                if(anterior == nullptr)
+                    buckets[posicion] = actual->next;
+                else
+                    anterior->next = actual->next;
+
+                delete actual;
+
+                tam--;
+
+                return;
+            }
+
+            anterior = actual;
+            actual = actual->next;
+        }
+    }
+
+    V& operator[](const K& key) {
+        int posicion = hash(key);
+
+        NodeHash<K, V>* actual = buckets[posicion];
+
+        while(actual != nullptr) {
+
+            if(actual->key == key)
+                return actual->value;
+
+            actual = actual->next;
+        }
+
+        NodeHash<K, V>* nuevo =
+            new NodeHash<K, V>(key, V());
+
+        nuevo->next = buckets[posicion];
+        buckets[posicion] = nuevo;
+
+        tam++;
+
+        if(tam > capacidad * 0.75)
+            resize();
+
+        return nuevo->value;
+    }
+
+    void clear() {
+
+        for(int i = 0; i < capacidad; i++) {
+
+            NodeHash<K, V>* actual = buckets[i];
+
+            while(actual != nullptr) {
+
+                NodeHash<K, V>* siguiente = actual->next;
+
+                delete actual;
+
+                actual = siguiente;
+            }
+
+            buckets[i] = nullptr;
+        }
+
+        tam = 0;
+    }
+
+    void swap(UnorderedMap<K, V>& otra) {
+
+        NodeHash<K, V>** tempBuckets = buckets;
+        buckets = otra.buckets;
+        otra.buckets = tempBuckets;
+
+        int tempCapacidad = capacidad;
+        capacidad = otra.capacidad;
+        otra.capacidad = tempCapacidad;
+
+        int tempTam = tam;
+        tam = otra.tam;
+        otra.tam = tempTam;
+    }
+};
+
+int main() {
+
+    UnorderedMap<string, int> edades;
+
+    edades["Fabian"] = 20;
+    edades["Juan"] = 21;
+    edades["Pedro"] = 19;
+
+    cout << edades["Fabian"] << "\n";
+    cout << edades["Juan"] << "\n";
+
+    cout << edades.size() << "\n";
+    cout << edades.empty() << "\n";
+
+    if(edades.contains("Pedro"))
+        cout << "Pedro existe\n";
+
+    if(!edades.contains("Carlos"))
+        cout << "Carlos no existe\n";
+
+    int* resultado = edades.find("Juan");
+
+    if(resultado != nullptr)
+        cout << *resultado << "\n";
+
+    edades.erase("Juan");
+
+    cout << edades.size() << "\n";
+
+    UnorderedMap<int, string> nombres;
+
+    nombres[10] = "Fabian";
+    nombres[20] = "Juan";
+    nombres[30] = "Pedro";
+
+    cout << nombres[10] << "\n";
+    cout << nombres[20] << "\n";
+
+    cout << nombres.bucket_count() << "\n";
+
+    nombres.clear();
+
+    cout << nombres.empty() << "\n";
+
+    return 0;
+}
