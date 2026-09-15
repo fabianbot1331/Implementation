@@ -1,0 +1,222 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+template <typename T>
+class Stack {
+private:
+    T* datos;
+    int capacidad;
+    int tam;
+
+    void resize() {
+        int nuevaCapacidad;
+
+        if(capacidad == 0)
+            nuevaCapacidad = 1;
+        else
+            nuevaCapacidad = capacidad * 2;
+
+        T* nuevos = new T[nuevaCapacidad];
+
+        for(int i = 0; i < tam; i++) {
+            nuevos[i] = datos[i];
+        }
+
+        delete[] datos;
+
+        datos = nuevos;
+        capacidad = nuevaCapacidad;
+    }
+
+public:
+
+    Stack() {
+        datos = nullptr;
+        capacidad = 0;
+        tam = 0;
+    }
+
+    Stack(const Stack<T>& otra) {
+        capacidad = otra.capacidad;
+        tam = otra.tam;
+
+        if(capacidad == 0) {
+            datos = nullptr;
+        }
+        else {
+            datos = new T[capacidad];
+
+            for(int i = 0; i < tam; i++) {
+                datos[i] = otra.datos[i];
+            }
+        }
+    }
+
+    Stack(Stack<T>&& otra) {
+        datos = otra.datos;
+        capacidad = otra.capacidad;
+        tam = otra.tam;
+
+        otra.datos = nullptr;
+        otra.capacidad = 0;
+        otra.tam = 0;
+    }
+
+    ~Stack() {
+        delete[] datos;
+    }
+
+    Stack<T>& operator=(const Stack<T>& otra) {
+        if(this == &otra)
+            return *this;
+
+        delete[] datos;
+
+        capacidad = otra.capacidad;
+        tam = otra.tam;
+
+        if(capacidad == 0) {
+            datos = nullptr;
+        }
+        else {
+            datos = new T[capacidad];
+
+            for(int i = 0; i < tam; i++) {
+                datos[i] = otra.datos[i];
+            }
+        }
+
+        return *this;
+    }
+
+    Stack<T>& operator=(Stack<T>&& otra) {
+        if(this == &otra)
+            return *this;
+
+        delete[] datos;
+
+        datos = otra.datos;
+        capacidad = otra.capacidad;
+        tam = otra.tam;
+
+        otra.datos = nullptr;
+        otra.capacidad = 0;
+        otra.tam = 0;
+
+        return *this;
+    }
+
+    int size() const {
+        return tam;
+    }
+
+    int capacity() const {
+        return capacidad;
+    }
+
+    bool empty() const {
+        return tam == 0;
+    }
+
+    T& top() {
+        return datos[tam - 1];
+    }
+
+    const T& top() const {
+        return datos[tam - 1];
+    }
+
+    void push(const T& valor) {
+        if(tam == capacidad)
+            resize();
+
+        datos[tam] = valor;
+        tam++;
+    }
+
+    void push(T&& valor) {
+        if(tam == capacidad)
+            resize();
+
+        datos[tam] = move(valor);
+        tam++;
+    }
+
+    template <typename... Args>
+    void emplace(Args&&... args) {
+        if(tam == capacidad)
+            resize();
+
+        datos[tam] = T(forward<Args>(args)...);
+        tam++;
+    }
+
+    void pop() {
+        if(tam == 0)
+            return;
+
+        tam--;
+    }
+
+    void clear() {
+        tam = 0;
+    }
+
+    void swap(Stack<T>& otra) {
+        T* tempDatos = datos;
+        datos = otra.datos;
+        otra.datos = tempDatos;
+
+        int tempCapacidad = capacidad;
+        capacidad = otra.capacidad;
+        otra.capacidad = tempCapacidad;
+
+        int tempTam = tam;
+        tam = otra.tam;
+        otra.tam = tempTam;
+    }
+};
+
+int main() {
+
+    Stack<int> s;
+
+    s.push(10);
+    s.push(20);
+    s.push(30);
+
+    cout << "Top: " << s.top() << "\n";
+    cout << "Size: " << s.size() << "\n";
+    cout << "Capacity: " << s.capacity() << "\n";
+    cout << "Empty: " << s.empty() << "\n";
+
+    s.pop();
+
+    cout << "\nDespues de pop:\n";
+    cout << "Top: " << s.top() << "\n";
+    cout << "Size: " << s.size() << "\n";
+
+    Stack<int> s2(s);
+
+    cout << "\nCopia:\n";
+    cout << s2.top() << "\n";
+
+    Stack<string> nombres;
+
+    nombres.push("Fabian");
+    nombres.push("Juan");
+    nombres.push("Pedro");
+
+    cout << "\nStack de strings:\n";
+    cout << nombres.top() << "\n";
+
+    nombres.pop();
+
+    cout << nombres.top() << "\n";
+
+    nombres.clear();
+
+    cout << "\nEmpty: " << nombres.empty() << "\n";
+
+    return 0;
+}
