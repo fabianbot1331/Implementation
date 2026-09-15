@@ -1,0 +1,343 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+template <typename T>
+class Deque {
+private:
+    T* datos;
+    int capacidad;
+    int tam;
+    int inicio;
+
+    void resize() {
+        int nuevaCapacidad;
+
+        if(capacidad == 0)
+            nuevaCapacidad = 1;
+        else
+            nuevaCapacidad = capacidad * 2;
+
+        T* nuevos = new T[nuevaCapacidad];
+
+        for(int i = 0; i < tam; i++) {
+            nuevos[i] = datos[(inicio + i) % capacidad];
+        }
+
+        delete[] datos;
+
+        datos = nuevos;
+        capacidad = nuevaCapacidad;
+        inicio = 0;
+    }
+
+public:
+
+    Deque() {
+        datos = nullptr;
+        capacidad = 0;
+        tam = 0;
+        inicio = 0;
+    }
+
+    Deque(const Deque<T>& otra) {
+        capacidad = otra.capacidad;
+        tam = otra.tam;
+        inicio = 0;
+
+        if(capacidad == 0) {
+            datos = nullptr;
+        }
+        else {
+            datos = new T[capacidad];
+
+            for(int i = 0; i < tam; i++) {
+                datos[i] = otra.datos[(otra.inicio + i) % otra.capacidad];
+            }
+        }
+    }
+
+    Deque(Deque<T>&& otra) {
+        datos = otra.datos;
+        capacidad = otra.capacidad;
+        tam = otra.tam;
+        inicio = otra.inicio;
+
+        otra.datos = nullptr;
+        otra.capacidad = 0;
+        otra.tam = 0;
+        otra.inicio = 0;
+    }
+
+    ~Deque() {
+        delete[] datos;
+    }
+
+    Deque<T>& operator=(const Deque<T>& otra) {
+        if(this == &otra)
+            return *this;
+
+        delete[] datos;
+
+        capacidad = otra.capacidad;
+        tam = otra.tam;
+        inicio = 0;
+
+        if(capacidad == 0) {
+            datos = nullptr;
+        }
+        else {
+            datos = new T[capacidad];
+
+            for(int i = 0; i < tam; i++) {
+                datos[i] = otra.datos[(otra.inicio + i) % otra.capacidad];
+            }
+        }
+
+        return *this;
+    }
+
+    Deque<T>& operator=(Deque<T>&& otra) {
+        if(this == &otra)
+            return *this;
+
+        delete[] datos;
+
+        datos = otra.datos;
+        capacidad = otra.capacidad;
+        tam = otra.tam;
+        inicio = otra.inicio;
+
+        otra.datos = nullptr;
+        otra.capacidad = 0;
+        otra.tam = 0;
+        otra.inicio = 0;
+
+        return *this;
+    }
+
+    int size() const {
+        return tam;
+    }
+
+    int capacity() const {
+        return capacidad;
+    }
+
+    bool empty() const {
+        return tam == 0;
+    }
+
+    T& front() {
+        return datos[inicio];
+    }
+
+    const T& front() const {
+        return datos[inicio];
+    }
+
+    T& back() {
+        return datos[(inicio + tam - 1) % capacidad];
+    }
+
+    const T& back() const {
+        return datos[(inicio + tam - 1) % capacidad];
+    }
+
+    T& operator[](int posicion) {
+        return datos[(inicio + posicion) % capacidad];
+    }
+
+    const T& operator[](int posicion) const {
+        return datos[(inicio + posicion) % capacidad];
+    }
+
+    void push_back(const T& valor) {
+        if(tam == capacidad)
+            resize();
+
+        int posicion = (inicio + tam) % capacidad;
+
+        datos[posicion] = valor;
+        tam++;
+    }
+
+    void push_back(T&& valor) {
+        if(tam == capacidad)
+            resize();
+
+        int posicion = (inicio + tam) % capacidad;
+
+        datos[posicion] = move(valor);
+        tam++;
+    }
+
+    void push_front(const T& valor) {
+        if(tam == capacidad)
+            resize();
+
+        if(tam == 0) {
+            inicio = 0;
+        }
+        else {
+            inicio = (inicio - 1 + capacidad) % capacidad;
+        }
+
+        datos[inicio] = valor;
+        tam++;
+    }
+
+    void push_front(T&& valor) {
+        if(tam == capacidad)
+            resize();
+
+        if(tam == 0) {
+            inicio = 0;
+        }
+        else {
+            inicio = (inicio - 1 + capacidad) % capacidad;
+        }
+
+        datos[inicio] = move(valor);
+        tam++;
+    }
+
+    template <typename... Args>
+    void emplace_back(Args&&... args) {
+        if(tam == capacidad)
+            resize();
+
+        int posicion = (inicio + tam) % capacidad;
+
+        datos[posicion] = T(forward<Args>(args)...);
+
+        tam++;
+    }
+
+    template <typename... Args>
+    void emplace_front(Args&&... args) {
+        if(tam == capacidad)
+            resize();
+
+        if(tam == 0) {
+            inicio = 0;
+        }
+        else {
+            inicio = (inicio - 1 + capacidad) % capacidad;
+        }
+
+        datos[inicio] = T(forward<Args>(args)...);
+
+        tam++;
+    }
+
+    void pop_back() {
+        if(tam == 0)
+            return;
+
+        tam--;
+
+        if(tam == 0)
+            inicio = 0;
+    }
+
+    void pop_front() {
+        if(tam == 0)
+            return;
+
+        inicio = (inicio + 1) % capacidad;
+        tam--;
+
+        if(tam == 0)
+            inicio = 0;
+    }
+
+    void clear() {
+        tam = 0;
+        inicio = 0;
+    }
+
+    void swap(Deque<T>& otra) {
+        T* tempDatos = datos;
+        datos = otra.datos;
+        otra.datos = tempDatos;
+
+        int tempCapacidad = capacidad;
+        capacidad = otra.capacidad;
+        otra.capacidad = tempCapacidad;
+
+        int tempTam = tam;
+        tam = otra.tam;
+        otra.tam = tempTam;
+
+        int tempInicio = inicio;
+        inicio = otra.inicio;
+        otra.inicio = tempInicio;
+    }
+};
+
+int main() {
+
+    Deque<int> d;
+
+    d.push_back(10);
+    d.push_back(20);
+    d.push_back(30);
+
+    d.push_front(5);
+    d.push_front(1);
+
+    cout << "Front: " << d.front() << "\n";
+    cout << "Back: " << d.back() << "\n";
+    cout << "Size: " << d.size() << "\n";
+    cout << "Capacity: " << d.capacity() << "\n";
+    cout << "Empty: " << d.empty() << "\n";
+
+    cout << "\nElementos:\n";
+
+    for(int i = 0; i < d.size(); i++) {
+        cout << d[i] << " ";
+    }
+
+    cout << "\n";
+
+    d.pop_front();
+    d.pop_back();
+
+    cout << "\nDespues de pop_front y pop_back:\n";
+
+    for(int i = 0; i < d.size(); i++) {
+        cout << d[i] << " ";
+    }
+
+    cout << "\n";
+
+    Deque<int> d2(d);
+
+    cout << "\nCopia:\n";
+
+    for(int i = 0; i < d2.size(); i++) {
+        cout << d2[i] << " ";
+    }
+
+    cout << "\n";
+
+    Deque<string> nombres;
+
+    nombres.push_back("Fabian");
+    nombres.push_front("Juan");
+    nombres.push_back("Pedro");
+
+    cout << "\nNombres:\n";
+
+    for(int i = 0; i < nombres.size(); i++) {
+        cout << nombres[i] << " ";
+    }
+
+    cout << "\n";
+
+    nombres.clear();
+
+    cout << "\nEmpty: " << nombres.empty() << "\n";
+
+    return 0;
+}
