@@ -1,0 +1,250 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+template<class T, class Cmp = less<T>>
+class AVLMultiset {
+    struct Node {
+        T x;
+        Node *l = nullptr, *r = nullptr;
+        int h = 1, freq = 1;
+        Node(const T& x) : x(x) {}
+    };
+
+    Node* root = nullptr;
+    size_t n = 0;
+    Cmp cmp;
+
+    static int h(Node* p) { return p ? p->h : 0; }
+
+    static void upd(Node* p) {
+        p->h = 1 + max(h(p->l), h(p->r));
+    }
+
+    static Node* left(Node* p) {
+        Node* q = p->r;
+        p->r = q->l;
+        q->l = p;
+        upd(p); upd(q);
+        return q;
+    }
+
+    static Node* right(Node* p) {
+        Node* q = p->l;
+        p->l = q->r;
+        q->r = p;
+        upd(p); upd(q);
+        return q;
+    }
+
+    static Node* balance(Node* p) {
+        upd(p);
+        int f = h(p->l) - h(p->r);
+        if (f > 1) {
+            if (h(p->l->l) < h(p->l->r))
+                p->l = left(p->l);
+            return right(p);
+        }
+        if (f < -1) {
+            if (h(p->r->r) < h(p->r->l))
+                p->r = right(p->r);
+            return left(p);
+        }
+        return p;
+    }
+
+    Node* add(Node* p, const T& x) {
+        if (!p) return new Node(x);
+        if (cmp(x, p->x)) p->l = add(p->l, x);
+        else if (cmp(p->x, x)) p->r = add(p->r, x);
+        else ++p->freq;
+        return balance(p);
+    }
+
+    static Node* remove_min(Node* p, Node*& mn) {
+        if (!p->l) {
+            mn = p;
+            return p->r;
+        }
+        p->l = remove_min(p->l, mn);
+        return balance(p);
+    }
+
+    Node* del(Node* p, const T& x, bool all, size_t& removed) {
+        if (!p) return nullptr;
+        if (cmp(x, p->x)) p->l = del(p->l, x, all, removed);
+        else if (cmp(p->x, x)) p->r = del(p->r, x, all, removed);
+        else {
+            removed = all ? p->freq : 1;
+            if (!all && p->freq > 1) {
+                --p->freq;
+                return p;
+            }
+            if (!p->l || !p->r) {
+                Node* child = p->l ? p->l : p->r;
+                delete p;
+                return child;
+            }
+            Node* mn = nullptr;
+            p->r = remove_min(p->r, mn);
+            mn->l = p->l;
+            mn->r = p->r;
+            delete p;
+            return balance(mn);
+        }
+        return balance(p);
+    }
+
+    static void destroy(Node* p) {
+        if (!p) return;
+        destroy(p->l);
+        destroy(p->r);
+        delete p;
+    }
+
+    Node* locate(const T& x) const {
+        Node* p = root;
+        while (p) {
+            if (cmp(x, p->x)) p = p->l;
+            else if (cmp(p->x, x)) p = p->r;
+            else return p;
+        }
+        return nullptr;
+    }
+
+public:
+    AVLMultiset() = default;
+    AVLMultiset(const AVLMultiset&) = delete;
+    AVLMultiset& operator=(const AVLMultiset&) = delete;
+    ~AVLMultiset() { clear(); }
+
+    class iterator {
+        vector<Node*> st;
+        int rep = 0;
+
+        void push(Node* p) {
+            while (p) {
+                st.push_back(p);
+                p = p->l;
+            }
+        }
+
+    public:
+        iterator(Node* p = nullptr) { push(p); }
+
+        iterator(Node* p, const T& x, const Cmp& cmp, bool strict) {
+            while (p) {
+                bool ok = strict ? cmp(x, p->x) : !cmp(p->x, x);
+                if (ok) {
+                    st.push_back(p);
+                    p = p->l;
+                } else p = p->r;
+            }
+        }
+
+        const T& operator*() const { return st.back()->x; }
+        const T* operator->() const { return &st.back()->x; }
+
+        iterator& operator++() {
+            if (++rep < st.back()->freq) return *this;
+            rep = 0;
+            Node* p = st.back();
+            st.pop_back();
+            push(p->r);
+            return *this;
+        }
+
+        bool operator==(const iterator& o) const {
+            if (st.empty() || o.st.empty())
+                return st.empty() && o.st.empty();
+            return st.back() == o.st.back() && rep == o.rep;
+        }
+
+        bool operator!=(const iterator& o) const { return !(*this == o); }
+    };
+
+    void insert(const T& x) { root = add(root, x); ++n; }
+
+    bool erase(const T& x) {
+        size_t removed = 0;
+        root = del(root, x, false, removed);
+        n -= removed;
+        return removed != 0;
+    }
+
+    size_t erase_all(const T& x) {
+        size_t removed = 0;
+        root = del(root, x, true, removed);
+        n -= removed;
+        return removed;
+    }
+
+    bool contains(const T& x) const { return locate(x) != nullptr; }
+    size_t count(const T& x) const {
+        Node* p = locate(x);
+        return p ? p->freq : 0;
+    }
+    size_t size() const { return n; }
+    bool empty() const { return n == 0; }
+
+    void clear() {
+        destroy(root);
+        root = nullptr;
+        n = 0;
+    }
+
+    iterator begin() const { return iterator(root); }
+    iterator end() const { return iterator(); }
+    iterator lower_bound(const T& x) const {
+        return iterator(root, x, cmp, false);
+    }
+    iterator upper_bound(const T& x) const {
+        return iterator(root, x, cmp, true);
+    }
+    iterator find(const T& x) const {
+        auto it = lower_bound(x);
+        return it != end() && !cmp(x, *it) && !cmp(*it, x) ? it : end();
+    }
+};
+
+int main() {
+    AVLMultiset<int> s;
+
+    for (int x : {7, 3, 9, 1, 5, 3, 7, 7})
+        s.insert(x);
+
+    for (auto x : s) cout << x << " ";
+    cout << "\n";
+
+    cout << s.size() << "\n";
+    cout << s.count(7) << "\n";
+    cout << s.contains(4) << "\n";
+
+    if (auto it = s.lower_bound(4); it != s.end())
+        cout << *it << "\n";
+
+    if (auto it = s.upper_bound(7); it != s.end())
+        cout << *it << "\n";
+
+    if (auto it = s.find(3); it != s.end())
+        cout << *it << "\n";
+
+    s.erase(7);
+    s.erase_all(3);
+
+    for (auto x : s) cout << x << " ";
+    cout << "\n";
+
+    AVLMultiset<string> palabras;
+    palabras.insert("hola");
+    palabras.insert("hola");
+
+    AVLMultiset<pair<int, int>> pares;
+    pares.insert({2, 5});
+    pares.insert({2, 5});
+
+    AVLMultiset<int, greater<int>> descendente;
+    for (int x : {1, 2, 2, 3}) descendente.insert(x);
+    for (auto x : descendente) cout << x << " ";
+    cout << "\n";
+    return 0;
+}
