@@ -1,0 +1,480 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+template <typename T, typename Compare = std::less<T>>
+class AVL {
+private:
+    struct Node {
+        T value;
+        size_t freq = 1;
+        size_t subtree_size = 1;
+        size_t subtree_distinct = 1;
+        int height = 0;
+        Node* left = nullptr;
+        Node* right = nullptr;
+        explicit Node(const T& v) : value(v) {}
+    };
+
+    Compare cmp_{};
+    Node* root_ = nullptr;
+
+    static int h(const Node* u) { return u ? u->height : -1; }
+    static size_t sz(const Node* u) { return u ? u->subtree_size : 0; }
+    static size_t ds(const Node* u) { return u ? u->subtree_distinct : 0; }
+    static int factor(const Node* u) { return h(u->left) - h(u->right); }
+
+    static void update(Node* u) {
+        u->height = 1 + max(h(u->left), h(u->right));
+        u->subtree_size = u->freq + sz(u->left) + sz(u->right);
+        u->subtree_distinct = 1 + ds(u->left) + ds(u->right);
+    }
+
+    static Node* rotate_left(Node* u) {
+        Node* v = u->right;
+        u->right = v->left;
+        v->left = u;
+        update(u);
+        update(v);
+        return v;
+    }
+
+    static Node* rotate_right(Node* u) {
+        Node* v = u->left;
+        u->left = v->right;
+        v->right = u;
+        update(u);
+        update(v);
+        return v;
+    }
+
+    static Node* rebalance(Node* u) {
+        update(u);
+        if (factor(u) > 1) {
+            if (factor(u->left) < 0)
+                u->left = rotate_left(u->left);
+            return rotate_right(u);
+        }
+        if (factor(u) < -1) {
+            if (factor(u->right) > 0)
+                u->right = rotate_right(u->right);
+            return rotate_left(u);
+        }
+        return u;
+    }
+
+    Node* insert_node(Node* u, const T& value) {
+        if (!u) return new Node(value);
+        if (cmp_(value, u->value)) {
+            u->left = insert_node(u->left, value);
+        } else if (cmp_(u->value, value)) {
+            u->right = insert_node(u->right, value);
+        } else {
+            ++u->freq;
+        }
+        return rebalance(u);
+    }
+
+    static Node* detach_min(Node* u, Node*& minimum) {
+        if (!u->left) {
+            minimum = u;
+            return u->right;
+        }
+        u->left = detach_min(u->left, minimum);
+        return rebalance(u);
+    }
+
+    Node* erase_node(Node* u, const T& value, bool all, size_t& removed) {
+        if (!u) return nullptr;
+        if (cmp_(value, u->value)) {
+            u->left = erase_node(u->left, value, all, removed);
+        } else if (cmp_(u->value, value)) {
+            u->right = erase_node(u->right, value, all, removed);
+        } else {
+            if (u->freq > 1 && !all) {
+                --u->freq;
+                removed = 1;
+                return rebalance(u);
+            }
+            removed = all ? u->freq : 1;
+            if (!u->left || !u->right) {
+                Node* child = u->left ? u->left : u->right;
+                delete u;
+                return child;
+            }
+            Node* successor = nullptr;
+            Node* remaining_right = detach_min(u->right, successor);
+            successor->left = u->left;
+            successor->right = remaining_right;
+            delete u;
+            return rebalance(successor);
+        }
+        return rebalance(u);
+    }
+
+    const Node* find_node(const T& value) const {
+        const Node* u = root_;
+        while (u) {
+            if (cmp_(value, u->value)) u = u->left;
+            else if (cmp_(u->value, value)) u = u->right;
+            else return u;
+        }
+        return nullptr;
+    }
+
+    static void destroy(Node* u) {
+        if (!u) return;
+        destroy(u->left);
+        destroy(u->right);
+        delete u;
+    }
+
+    static Node* clone(const Node* u) {
+        if (!u) return nullptr;
+        Node* copy = new Node(u->value);
+        try {
+            copy->freq = u->freq;
+            copy->height = u->height;
+            copy->subtree_size = u->subtree_size;
+            copy->subtree_distinct = u->subtree_distinct;
+            copy->left = clone(u->left);
+            copy->right = clone(u->right);
+        } catch (...) {
+            destroy(copy);
+            throw;
+        }
+        return copy;
+    }
+
+    static void collect_inorder(const Node* u, vector<T>& result) {
+        if (!u) return;
+        collect_inorder(u->left, result);
+        result.insert(result.end(), u->freq, u->value);
+        collect_inorder(u->right, result);
+    }
+
+    static void collect_preorder(const Node* u, vector<T>& result) {
+        if (!u) return;
+        result.insert(result.end(), u->freq, u->value);
+        collect_preorder(u->left, result);
+        collect_preorder(u->right, result);
+    }
+
+    static void collect_postorder(const Node* u, vector<T>& result) {
+        if (!u) return;
+        collect_postorder(u->left, result);
+        collect_postorder(u->right, result);
+        result.insert(result.end(), u->freq, u->value);
+    }
+
+    static void print_values(const vector<T>& values, ostream& out) {
+        for (const auto& value : values) out << value << ' ';
+        out << '\n';
+    }
+
+    size_t count_less_equal(const T& value) const {
+        size_t result = 0;
+        const Node* u = root_;
+        while (u) {
+            if (cmp_(value, u->value)) {
+                u = u->left;
+            } else {
+                result += sz(u->left) + u->freq;
+                u = u->right;
+            }
+        }
+        return result;
+    }
+
+public:
+    AVL() = default;
+    explicit AVL(Compare comparator) : cmp_(std::move(comparator)) {}
+    ~AVL() { clear(); }
+
+    AVL(const AVL& other) : cmp_(other.cmp_), root_(clone(other.root_)) {}
+
+    AVL& operator=(const AVL& other) {
+        if (this != &other) {
+            AVL temp(other);
+            swap(temp);
+        }
+        return *this;
+    }
+
+    AVL(AVL&& other) noexcept(is_nothrow_move_constructible_v<Compare>)
+        : cmp_(std::move(other.cmp_)), root_(std::exchange(other.root_, nullptr)) {}
+
+    AVL& operator=(AVL&& other) noexcept(is_nothrow_move_assignable_v<Compare>) {
+        if (this != &other) {
+            clear();
+            cmp_ = std::move(other.cmp_);
+            root_ = std::exchange(other.root_, nullptr);
+        }
+        return *this;
+    }
+
+    void swap(AVL& other) noexcept(is_nothrow_swappable_v<Compare>) {
+        using std::swap;
+        swap(cmp_, other.cmp_);
+        swap(root_, other.root_);
+    }
+
+    bool empty() const { return !root_; }
+    size_t size() const { return sz(root_); }
+    size_t distinct_size() const { return ds(root_); }
+    int height() const { return h(root_); }
+
+    void clear() {
+        destroy(root_);
+        root_ = nullptr;
+    }
+
+    void insert(const T& value) { root_ = insert_node(root_, value); }
+
+    bool erase(const T& value) {
+        size_t removed = 0;
+        root_ = erase_node(root_, value, false, removed);
+        return removed != 0;
+    }
+
+    size_t erase_all(const T& value) {
+        size_t removed = 0;
+        root_ = erase_node(root_, value, true, removed);
+        return removed;
+    }
+
+    bool search(const T& value) const { return find_node(value) != nullptr; }
+    bool contains(const T& value) const { return search(value); }
+
+    size_t count(const T& value) const {
+        const Node* u = find_node(value);
+        return u ? u->freq : 0;
+    }
+
+    optional<T> min_element() const {
+        const Node* u = root_;
+        if (!u) return nullopt;
+        while (u->left) u = u->left;
+        return u->value;
+    }
+
+    optional<T> max_element() const {
+        const Node* u = root_;
+        if (!u) return nullopt;
+        while (u->right) u = u->right;
+        return u->value;
+    }
+
+    optional<T> lower_bound(const T& value) const {
+        const Node* u = root_;
+        optional<T> answer;
+        while (u) {
+            if (!cmp_(u->value, value)) {
+                answer.emplace(u->value);
+                u = u->left;
+            } else u = u->right;
+        }
+        return answer;
+    }
+
+    optional<T> upper_bound(const T& value) const {
+        const Node* u = root_;
+        optional<T> answer;
+        while (u) {
+            if (cmp_(value, u->value)) {
+                answer.emplace(u->value);
+                u = u->left;
+            } else u = u->right;
+        }
+        return answer;
+    }
+
+    optional<T> successor(const T& value) const { return upper_bound(value); }
+
+    optional<T> predecessor(const T& value) const {
+        const Node* u = root_;
+        optional<T> answer;
+        while (u) {
+            if (cmp_(u->value, value)) {
+                answer.emplace(u->value);
+                u = u->right;
+            } else u = u->left;
+        }
+        return answer;
+    }
+
+    optional<T> floor(const T& value) const {
+        const Node* u = root_;
+        optional<T> answer;
+        while (u) {
+            if (cmp_(value, u->value)) {
+                u = u->left;
+            } else {
+                answer.emplace(u->value);
+                u = u->right;
+            }
+        }
+        return answer;
+    }
+
+    optional<T> ceil(const T& value) const { return lower_bound(value); }
+
+    size_t order_of_key(const T& value) const {
+        size_t result = 0;
+        const Node* u = root_;
+        while (u) {
+            if (cmp_(u->value, value)) {
+                result += sz(u->left) + u->freq;
+                u = u->right;
+            } else {
+                u = u->left;
+            }
+        }
+        return result;
+    }
+
+    optional<T> find_by_order(size_t k) const {
+        if (k >= size()) return nullopt;
+        const Node* u = root_;
+        while (u) {
+            size_t left_size = sz(u->left);
+            if (k < left_size) u = u->left;
+            else if (k < left_size + u->freq) return u->value;
+            else {
+                k -= left_size + u->freq;
+                u = u->right;
+            }
+        }
+        return nullopt;
+    }
+
+    optional<T> kth(size_t k) const {
+        return k == 0 ? nullopt : find_by_order(k - 1);
+    }
+
+    size_t count_range(const T& low, const T& high) const {
+        if (cmp_(high, low)) return 0;
+        return count_less_equal(high) - order_of_key(low);
+    }
+
+    vector<T> inorder() const {
+        vector<T> result;
+        result.reserve(size());
+        collect_inorder(root_, result);
+        return result;
+    }
+
+    vector<T> preorder() const {
+        vector<T> result;
+        result.reserve(size());
+        collect_preorder(root_, result);
+        return result;
+    }
+
+    vector<T> postorder() const {
+        vector<T> result;
+        result.reserve(size());
+        collect_postorder(root_, result);
+        return result;
+    }
+
+    vector<T> level_order() const {
+        vector<T> result;
+        result.reserve(size());
+        if (!root_) return result;
+        queue<const Node*> q;
+        q.push(root_);
+        while (!q.empty()) {
+            const Node* u = q.front(); q.pop();
+            result.insert(result.end(), u->freq, u->value);
+            if (u->left) q.push(u->left);
+            if (u->right) q.push(u->right);
+        }
+        return result;
+    }
+
+    void print_inorder(ostream& out = cout) const { print_values(inorder(), out); }
+    void print_preorder(ostream& out = cout) const { print_values(preorder(), out); }
+    void print_postorder(ostream& out = cout) const { print_values(postorder(), out); }
+    void print_level_order(ostream& out = cout) const { print_values(level_order(), out); }
+};
+
+template <typename T>
+void mostrar(const optional<T>& value) {
+    if (value) cout << *value;
+    else cout << "no existe";
+    cout << '\n';
+}
+
+struct Alumno {
+    string nombre;
+    int nota;
+};
+
+struct OrdenAlumno {
+    bool operator()(const Alumno& a, const Alumno& b) const {
+        return tie(a.nota, a.nombre) < tie(b.nota, b.nombre);
+    }
+};
+
+int main() {
+    cout << boolalpha;
+    AVL<int> numeros;
+    for (int x : {30, 20, 10, 25, 40, 50, 25, 25, 5})
+        numeros.insert(x);
+
+    cout << "--- AVL<int> ---\n";
+    cout << "Inorder: "; numeros.print_inorder();
+    cout << "Preorder: "; numeros.print_preorder();
+    cout << "Por niveles: "; numeros.print_level_order();
+    cout << "Cantidad total: " << numeros.size() << '\n';
+    cout << "Claves distintas: " << numeros.distinct_size() << '\n';
+    cout << "Altura (hoja=0): " << numeros.height() << '\n';
+    cout << "Existe 25: " << numeros.search(25) << '\n';
+    cout << "Repeticiones de 25: " << numeros.count(25) << '\n';
+
+    cout << "Minimo: "; mostrar(numeros.min_element());
+    cout << "Maximo: "; mostrar(numeros.max_element());
+    cout << "Sucesor estricto de 25: "; mostrar(numeros.successor(25));
+    cout << "Predecesor estricto de 25: "; mostrar(numeros.predecessor(25));
+    cout << "Lower bound de 24 (>=24): "; mostrar(numeros.lower_bound(24));
+    cout << "Upper bound de 25 (>25): "; mostrar(numeros.upper_bound(25));
+    cout << "Floor de 24: "; mostrar(numeros.floor(24));
+    cout << "Ceil de 24: "; mostrar(numeros.ceil(24));
+
+    cout << "Cuantos son menores que 25: " << numeros.order_of_key(25) << '\n';
+    cout << "Elemento k=0: "; mostrar(numeros.find_by_order(0));
+    cout << "Cuarto elemento (k=4, desde 1): "; mostrar(numeros.kth(4));
+    cout << "Cantidad en [20,40]: " << numeros.count_range(20, 40) << '\n';
+
+    numeros.erase(25);  // Borra una aparicion.
+    cout << "Tras erase(25): "; numeros.print_inorder();
+    cout << "erase_all(25) elimino: " << numeros.erase_all(25) << '\n';
+    cout << "Tras erase_all(25): "; numeros.print_inorder();
+
+    AVL<string> frutas;
+    for (const string& s : vector<string>{"pera", "uva", "manzana", "pera"})
+        frutas.insert(s);
+    cout << "\n--- AVL<string> ---\n";
+    cout << "Inorder: "; frutas.print_inorder();
+    cout << "Repeticiones de pera: " << frutas.count("pera") << '\n';
+
+    // 3. Pares: orden lexicografico (primero .first, luego .second).
+    AVL<pair<int, int>> pares;
+    for (auto p : {pair{2,3}, pair{1,9}, pair{2,1}, pair{1,9}})
+        pares.insert(p);
+    cout << "\n--- AVL<pair<int,int>> ---\n";
+    cout << "Inorder: ";
+    for (const auto& [a, b] : pares.inorder())
+        cout << '(' << a << ',' << b << ") ";
+    cout << '\n';
+
+    // 4. Estructura propia: orden por nota y, si empatan, por nombre.
+    AVL<Alumno, OrdenAlumno> alumnos;
+    alumnos.insert({"Ana", 18});
+    alumnos.insert({"Luis", 16});
+    alumnos.insert({"Carla", 18});
+    cout << "\n--- AVL<Alumno, OrdenAlumno> ---\n";
+    for (const auto& a : alumnos.inorder())
+        cout << a.nombre << " (" << a.nota << ") ";
+    cout << '\n';
+}
