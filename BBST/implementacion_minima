@@ -1,0 +1,152 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+template<class T, class Cmp = less<T>>
+class AVLSet {
+    struct Node {
+        T x;
+        Node *l = nullptr, *r = nullptr;
+        int h = 1;
+        Node(const T& x) : x(x) {}
+    };
+    Node* root = nullptr;
+    int n = 0;
+    Cmp cmp;
+
+    static int h(Node* p) { return p ? p->h : 0; }
+    static void upd(Node* p) { p->h = 1 + max(h(p->l), h(p->r)); }
+    static Node* left(Node* p) {
+        Node* q = p->r; p->r = q->l; q->l = p;
+        upd(p); upd(q); return q;
+    }
+    static Node* right(Node* p) {
+        Node* q = p->l; p->l = q->r; q->r = p;
+        upd(p); upd(q); return q;
+    }
+    static Node* balance(Node* p) {
+        upd(p);
+        int f = h(p->l) - h(p->r);
+        if (f > 1) {
+            if (h(p->l->l) < h(p->l->r)) p->l = left(p->l);
+            return right(p);
+        }
+        if (f < -1) {
+            if (h(p->r->r) < h(p->r->l)) p->r = right(p->r);
+            return left(p);
+        }
+        return p;
+    }
+    Node* add(Node* p, const T& x, bool& ok) {
+        if (!p) { ok = true; return new Node(x); }
+        if (cmp(x, p->x)) p->l = add(p->l, x, ok);
+        else if (cmp(p->x, x)) p->r = add(p->r, x, ok);
+        return balance(p);
+    }
+    Node* del(Node* p, const T& x, bool& ok) {
+        if (!p) return nullptr;
+        if (cmp(x, p->x)) p->l = del(p->l, x, ok);
+        else if (cmp(p->x, x)) p->r = del(p->r, x, ok);
+        else {
+            ok = true;
+            if (!p->l || !p->r) {
+                Node* child = p->l ? p->l : p->r;
+                delete p; return child;
+            }
+            Node* s = p->r;
+            while (s->l) s = s->l;
+            p->x = s->x;
+            bool ignored = false;
+            p->r = del(p->r, s->x, ignored);
+        }
+        return balance(p);
+    }
+    static void destroy(Node* p) {
+        if (!p) return;
+        destroy(p->l); destroy(p->r); delete p;
+    }
+public:
+    AVLSet() = default;
+    AVLSet(const AVLSet&) = delete;
+    AVLSet& operator=(const AVLSet&) = delete;
+    ~AVLSet() { clear(); }
+
+    class iterator {
+        vector<Node*> st;
+        void push(Node* p) {
+            while (p) { st.push_back(p); p = p->l; }
+        }
+    public:
+        iterator(Node* p = nullptr) { push(p); }
+        iterator(Node* p, const T& x, const Cmp& cmp, bool strict) {
+            while (p) {
+                bool ok = strict ? cmp(x, p->x) : !cmp(p->x, x);
+                if (ok) { st.push_back(p); p = p->l; }
+                else p = p->r;
+            }
+        }
+        const T& operator*() const { return st.back()->x; }
+        const T* operator->() const { return &st.back()->x; }
+        iterator& operator++() {
+            Node* p = st.back(); st.pop_back(); push(p->r);
+            return *this;
+        }
+        bool operator==(const iterator& o) const {
+            if (st.empty() || o.st.empty()) return st.empty() && o.st.empty();
+            return st.back() == o.st.back();
+        }
+        bool operator!=(const iterator& o) const { return !(*this == o); }
+    };
+
+    bool insert(const T& x) {
+        bool ok = false; root = add(root, x, ok); n += ok; return ok;
+    }
+    bool erase(const T& x) {
+        bool ok = false; root = del(root, x, ok); n -= ok; return ok;
+    }
+    bool contains(const T& x) const {
+        Node* p = root;
+        while (p) {
+            if (cmp(x, p->x)) p = p->l;
+            else if (cmp(p->x, x)) p = p->r;
+            else return true;
+        }
+        return false;
+    }
+    int count(const T& x) const { return contains(x); }
+    int size() const { return n; }
+    bool empty() const { return n == 0; }
+    void clear() { destroy(root); root = nullptr; n = 0; }
+    iterator begin() const { return iterator(root); }
+    iterator end() const { return iterator(); }
+    iterator lower_bound(const T& x) const { return iterator(root, x, cmp, false); }
+    iterator upper_bound(const T& x) const { return iterator(root, x, cmp, true); }
+    iterator find(const T& x) const {
+        auto it = lower_bound(x);
+        return it != end() && !cmp(x, *it) && !cmp(*it, x) ? it : end();
+    }
+};
+
+int main() {
+    AVLSet<int> s;
+    for (int x : {7, 3, 9, 1, 5, 3}) s.insert(x);
+    for (auto x : s) cout << x << ' ';
+    cout << '\n';
+
+    cout << s.size() << '\n';
+    cout << s.count(3) << '\n';
+    cout << s.contains(8) << '\n';
+
+    if (auto it = s.lower_bound(4); it != s.end()) cout << *it << '\n';
+    if (auto it = s.upper_bound(5); it != s.end()) cout << *it << '\n';
+    if (auto it = s.find(7); it != s.end()) cout << *it << '\n';
+
+    s.erase(3);
+    for (auto x : s) cout << x << ' ';
+    cout << '\n';
+
+    AVLSet<string> names;
+    names.insert("Ana"); names.insert("Luis");
+    for (const auto& name : names) cout << name << ' ';
+    cout << '\n';
+    return 0;
+}
